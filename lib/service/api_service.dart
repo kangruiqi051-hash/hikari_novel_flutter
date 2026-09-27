@@ -26,6 +26,8 @@ class ApiService extends GetxService {
 
   Dio get dio => _client.dio;
 
+  void setUserAgent(String userAgent) => _client.setUserAgent(userAgent);
+
   void initCookie() => _client.initCookie();
 
   void deleteCookie() => _client.deleteCookie();
@@ -275,9 +277,13 @@ class ApiService extends GetxService {
 class _ApiClient {
   final ckjar.CookieJar _cookieJar = ckjar.CookieJar();
   late final Dio dio =
-      Dio(BaseOptions(headers: kUserAgent, responseType: ResponseType.bytes, followRedirects: false, validateStatus: (status) => status != null))
+      Dio(BaseOptions(headers: kUserAgent, responseType: ResponseType.bytes, followRedirects: false, validateStatus: (status) => status != null, connectTimeout: const Duration(seconds: 30), sendTimeout: const Duration(seconds: 30), receiveTimeout: const Duration(seconds: 60)))
         ..interceptors.add(_CloudflareInterceptor())
         ..interceptors.add(CookieManager(_cookieJar));
+
+  void setUserAgent(String userAgent) {
+    dio.options.headers['User-Agent'] = userAgent;
+  }
 
   void initCookie() {
     final localCookie = LocalStorageService.instance.getCookie();
@@ -334,8 +340,9 @@ class _ApiClient {
     if (response.statusCode != null && response.statusCode! >= 300 && response.statusCode! < 400) {
       final location = response.headers.value('location');
       if (location != null) {
-        final node = LocalStorageService.instance.getWenku8Node();
-        final redirectedResponse = await dio.get("${node.node}/$location");
+        final redirectedUri = response.requestOptions.uri.resolve(location);
+        final redirectedResponse = await dio.getUri(redirectedUri);
+
         return redirectedResponse.data;
       }
     }
