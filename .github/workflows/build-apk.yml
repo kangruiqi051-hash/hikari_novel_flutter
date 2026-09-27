@@ -52,11 +52,12 @@ jobs:
           APK_NAME="hikari-novel-${SAFE_REF}-${SHORT_SHA}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "$APK_NAME"
           echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
+          echo "SAFE_REF=$SAFE_REF" >> "$GITHUB_ENV"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hikari-novel-${{ github.ref_name }}-${{ github.run_number }}
+          name: hikari-novel-${{ env.SAFE_REF }}-${{ github.run_number }}
           path: ${{ env.APK_NAME }}
           if-no-files-found: error
           retention-days: 30
