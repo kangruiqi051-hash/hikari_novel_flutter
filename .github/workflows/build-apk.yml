@@ -48,7 +48,8 @@ jobs:
         shell: bash
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
-          APK_NAME="hikari-novel-${GITHUB_REF_NAME}-${SHORT_SHA}.apk"
+          SAFE_REF="${GITHUB_REF_NAME////-}"
+          APK_NAME="hikari-novel-${SAFE_REF}-${SHORT_SHA}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "$APK_NAME"
           echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
 
@@ -65,7 +66,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          TAG="auto-${GITHUB_REF_NAME}-${GITHUB_RUN_NUMBER}"
+          TAG="auto-${SAFE_REF}-${GITHUB_RUN_NUMBER}"
           gh release create "$TAG" "$APK_NAME" \
             --target "$GITHUB_SHA" \
             --title "Automatic build ${GITHUB_REF_NAME} #${GITHUB_RUN_NUMBER}" \
