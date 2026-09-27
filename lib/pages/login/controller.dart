@@ -23,7 +23,7 @@ class LoginController extends GetxController {
   final CookieManager cookieManager = CookieManager.instance(webViewEnvironment: webViewEnvironment);
   InAppWebViewController? inAppWebViewController;
   final GlobalKey webViewKey = GlobalKey();
-  final InAppWebViewSettings settings = InAppWebViewSettings(isInspectable: kDebugMode, userAgent: kUserAgent["User-Agent"], javaScriptEnabled: true);
+  final InAppWebViewSettings settings = InAppWebViewSettings(isInspectable: kDebugMode, javaScriptEnabled: true);
   RxString currentUrl = "".obs;
 
   Rx<PageState> pageState = PageState.success.obs;
@@ -51,28 +51,29 @@ class LoginController extends GetxController {
         String cookie = "jieqiUserInfo=${getCookie.firstWhere((cookieItem) => cookieItem.name == "jieqiUserInfo").value};";
         cookie += "jieqiVisitInfo=${getCookie.firstWhere((cookieItem) => cookieItem.name == "jieqiVisitInfo").value}";
         LocalStorageService.instance.setCookie(cookie);
+        final webViewUserAgent = await inAppWebViewController?.evaluateJavascript(source: "navigator.userAgent");
+        if (webViewUserAgent is String && webViewUserAgent.isNotEmpty) {
+          ApiService.instance.setUserAgent(webViewUserAgent);
+        }
         ApiService.instance.initCookie();
 
+        String? syncWarning;
         try {
           await _getUserInfo();
+        } catch (e) {
+          syncWarning = "登录已成功，但用户信息同步失败：$e";
+        }
+
+        try {
           await _refreshBookshelf();
         } catch (e) {
-          LocalStorageService.instance.setCookie(null); //清空cookie
-          ApiService.instance.deleteCookie();
-
-          final controller = inAppWebViewController;
-          if (controller != null) {
-            inAppWebViewController = null;
-            controller.dispose(); //销毁webview，停止加载网页
-          }
-
-          errorMsg = e.toString();
-          pageState.value = PageState.error;
-
-          return;
+          syncWarning = "登录已成功，但书架同步失败：$e";
         }
 
         Get.offAllNamed(RoutePath.main);
+        if (syncWarning != null) {
+          Get.snackbar("登录成功", syncWarning, snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 6));
+        }
       }
     }
   }
@@ -92,10 +93,9 @@ class LoginController extends GetxController {
   Future<void> _refreshBookshelf() async {
     await DBService.instance.deleteAllBookshelf();
 
-    final futures = Iterable.generate(6, (index) async {
+    for (var index = 0; index < 6; index++) {
       await _insertAll(index);
-    });
-    await Future.wait(futures);
+    }
   }
 
   Future<void> _insertAll(int index) async {
